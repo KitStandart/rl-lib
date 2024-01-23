@@ -1,0 +1,111 @@
+import os.path as os_path
+import time
+import traceback
+from pprint import pprint
+
+import gym
+import numpy as np
+import tensorflow as tf
+from tensorflow.keras import layers
+
+from rl_lib.src.algoritms.model_free.value_based import QR_DQN
+from rl_lib.src.data_saver.utils import load_default_config
+
+env = gym.make('CartPole-v0')
+
+config = load_default_config("./rl_lib/tests/qr_dqn_config.yaml")
+
+def create_model():
+    """Создает модель tf.keras.Model, архитектура DQN"""
+    input_layer = layers.Input(shape=env.observation_space.shape, )
+    dence_layer1 = layers.Dense(32, activation='relu')(input_layer)
+    dence_layer2 = layers.Dense(32, activation='relu')(dence_layer1)
+
+    dence_out = layers.Dense(env.action_space.n * config['model_config']['num_atoms'],
+                                 activation=None)(dence_layer2)
+
+    out = layers.Reshape((env.action_space.n, config['model_config']['num_atoms']))(dence_out)
+    return tf.keras.Model(inputs=input_layer, outputs=out)
+
+
+pprint(config)
+config['model_config']['model'] = create_model()
+config['model_config']['input_shape'] = env.observation_space.shape
+config['model_config']['action_space'] = env.action_space.n
+algo = QR_DQN(config)
+
+pprint(algo.config)
+
+def run(algo):
+    epidodes = 250
+    steps = 200
+    train_frequency = 1
+    test_frequency = 10
+    test_steps = 200
+    pre_train_steps = 2000
+    copy_weigths_frequency = 100
+
+    # history data
+    rewards = []
+    episode_reward = 0
+    episode_test_reward = 0
+    episode_loss = []
+    count = 0
+
+    for episode in range(1, epidodes):
+        start_time = time.time()
+
+        observation, info = env.reset()
+        episode_reward = 0
+        episode_loss = []
+        for step in range(1, steps):
+            action = algo.get_action(observation)
+            new_observation, reward, done, _, info = env.step(action)
+            algo.add((observation, action, reward, done, new_observation))
+            episode_reward += reward
+            count += 1
+            if count % train_frequency == 0 and count > pre_train_steps:
+                td_error = algo.train_step()
+                episode_loss.append(td_error)
+                if count % copy_weigths_frequency == 0:
+                    res = algo.copy_weights()
+            observation = new_observation
+            if done:
+                break
+
+        algo.save()
+        rewards.append(episode_reward)
+        # testing algoritm perfomans
+        if episode % test_frequency == 0:
+            observation, info = env.reset()
+            episode_test_reward = 0
+            for test_step in range(1, test_steps):
+                action = algo.get_test_action(observation)
+                observation, test_reward, done, _, info = env.step(action)
+                episode_test_reward += test_reward
+                if done:
+                    break
+
+        # print info
+        print("   Episode %d - Reward = %.3f, episode reward = %.3f, test reward %.3f, Loss = %.6f, Time = %.f sec, Total steps = %.f" %
+              (
+                  episode,
+                  np.asarray(rewards[-10:]).mean() if len(rewards) != 0 else 0,
+                  episode_reward,
+                  episode_test_reward,
+                  np.asarray(episode_loss).mean() if len(
+                      episode_loss) != 0 else 0,
+                  time.time()-start_time,
+                  count
+              )
+              )
+    algo.load()
+
+
+if __name__ == "__main__":
+    try:
+        run(algo=algo)
+
+    except Exception as e:
+        print(traceback.format_exc())
+        input("Press enter to exit: ")

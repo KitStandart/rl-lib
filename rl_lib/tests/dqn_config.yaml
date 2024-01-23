@@ -8,8 +8,8 @@ model_config:
   discount_factor : 0.9
   n_step: 1
   batch_size: 32
-  double_network: True
-  priority: False
+  double_network: False
+  priority: True
   tau: 1.0
   
 optimizer_config:

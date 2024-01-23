@@ -6,7 +6,7 @@ from tensorflow.keras import layers
 import tensorflow as tf
 from pprint import pprint
 
-from rl_lib.src.algoritms.drqn.drqn import DRQN
+from rl_lib import DRQN
 from rl_lib.src.data_saver.utils import load_default_config
 
 env = gym.make('CartPole-v0')
@@ -26,7 +26,7 @@ def create_model(lstm_size = 32):
     
     return tf.keras.Model(inputs=[input_layer, h_t_input, c_t_input], outputs=[dence_out, lstm[1], lstm[2]])
 
-config = load_default_config("..\\rl_lib\\rl_lib\\examples\\drqn\\cart_pole/")
+config = load_default_config(__file__)
 config['model_config']['model'] = create_model(lstm_size=config['model_config']['lstm_size'])
 config['model_config']['input_shape'] = env.observation_space.shape
 config['model_config']['action_space'] = env.action_space.n
@@ -56,6 +56,7 @@ def run(algo):
         observation, info = env.reset()
         algo.initial_state()
         episode_reward = 0
+        episode_loss = []
         for step in range(1, steps):
             action = algo.get_action(observation)
             new_observation, reward, done, _, info = env.step(action)

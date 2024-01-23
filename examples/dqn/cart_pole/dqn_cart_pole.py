@@ -6,7 +6,7 @@ from tensorflow.keras import layers
 import tensorflow as tf
 from pprint import pprint
 
-from rl_lib.src.algoritms.dqn.dqn import DQN
+from rl_lib import DQN
 from rl_lib.src.data_saver.utils import load_default_config
 
 env = gym.make('CartPole-v0')
@@ -49,6 +49,7 @@ def run(algo):
 
         observation, info = env.reset()
         episode_reward = 0
+        episode_loss = []
         for step in range(1, steps):
             action = algo.get_action(observation)
             new_observation, reward, done, _, info = env.step(action)
